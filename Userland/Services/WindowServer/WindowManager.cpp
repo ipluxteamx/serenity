@@ -72,8 +72,8 @@ void WindowManager::reload_config()
 {
     m_config = Core::ConfigFile::open("/etc/WindowServer.ini", Core::ConfigFile::AllowWriting::Yes).release_value_but_fixme_should_propagate_errors();
 
-    unsigned workspace_rows = (unsigned)m_config->read_num_entry("Workspace", "Rows", default_window_stack_rows);
-    unsigned workspace_columns = (unsigned)m_config->read_num_entry("Workspace", "Columns", default_window_stack_columns);
+    unsigned workspace_rows = (unsigned)m_config->read_num_entry("Workspaces", "Rows", default_window_stack_rows);
+    unsigned workspace_columns = (unsigned)m_config->read_num_entry("Workspaces", "Columns", default_window_stack_columns);
     if (workspace_rows == 0 || workspace_columns == 0 || workspace_rows > max_window_stack_rows || workspace_columns > max_window_stack_columns) {
         workspace_rows = default_window_stack_rows;
         workspace_columns = default_window_stack_columns;
@@ -254,8 +254,8 @@ bool WindowManager::apply_workspace_settings(unsigned rows, unsigned columns, bo
     }
 
     if (save) {
-        m_config->write_num_entry("Workspace", "Rows", window_stack_rows());
-        m_config->write_num_entry("Workspace", "Columns", window_stack_columns());
+        m_config->write_num_entry("Workspaces", "Rows", window_stack_rows());
+        m_config->write_num_entry("Workspaces", "Columns", window_stack_columns());
         return !m_config->sync().is_error();
     }
     return true;
@@ -1459,6 +1459,7 @@ void WindowManager::event(Core::Event& event)
             m_previous_event_was_super_keydown = false;
 
         process_mouse_event(mouse_event);
+        m_last_processed_buttons = mouse_event.buttons();
         // TODO: handle transitioning between two stacks
         set_hovered_window(current_window_stack().window_at(mouse_event.position(), WindowStack::IncludeWindowFrame::No));
         return;
@@ -2080,10 +2081,10 @@ void WindowManager::start_dnd_drag(ConnectionFromClient& client, String const& t
     VERIFY(!m_dnd_client);
     m_dnd_client = client;
     m_dnd_text = text;
+    Compositor::the().invalidate_cursor(true);
     m_dnd_overlay = Compositor::the().create_overlay<DndOverlay>(text, bitmap);
     m_dnd_overlay->set_enabled(true);
     m_dnd_mime_data = mime_data;
-    Compositor::the().invalidate_cursor();
     set_automatic_cursor_tracking_window(nullptr);
 }
 
@@ -2353,6 +2354,7 @@ void WindowManager::apply_system_effects(Vector<bool> effects, ShowGeometry geom
     m_config->write_bool_entry("Effects", "SmoothScrolling", m_system_effects.smooth_scrolling());
     m_config->write_bool_entry("Effects", "TabAccents", m_system_effects.tab_accents());
     m_config->write_bool_entry("Effects", "SplitterKnurls", m_system_effects.splitter_knurls());
+    m_config->write_bool_entry("Effects", "Tooltips", m_system_effects.tooltips());
     m_config->write_bool_entry("Effects", "MenuShadow", m_system_effects.menu_shadow());
     m_config->write_bool_entry("Effects", "WindowShadow", m_system_effects.window_shadow());
     m_config->write_bool_entry("Effects", "TooltipShadow", m_system_effects.tooltip_shadow());
@@ -2369,6 +2371,7 @@ void WindowManager::load_system_effects()
         m_config->read_bool_entry("Effects", "SmoothScrolling", true),
         m_config->read_bool_entry("Effects", "TabAccents", true),
         m_config->read_bool_entry("Effects", "SplitterKnurls", true),
+        m_config->read_bool_entry("Effects", "Tooltips", true),
         m_config->read_bool_entry("Effects", "MenuShadow", true),
         m_config->read_bool_entry("Effects", "WindowShadow", true),
         m_config->read_bool_entry("Effects", "TooltipShadow", true)
